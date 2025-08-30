@@ -8,6 +8,7 @@ from .permissions import IsOwnerOrReadOnly
 from django.shortcuts import get_object_or_404
 from .models import Like
 from rest_framework.decorators import action
+from rest_framework import filters
 
 
 class PostCommentViewSet(viewsets.ModelViewSet):
@@ -59,6 +60,11 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by("-id")
     serializer_class = PostSerializer
 
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]   # 추가
+    search_fields = ["title", "content"]                               # 어떤 필드를 검색할지
+    ordering_fields = ["created_at", "updated_at", "id"]               # 정렬 허용 필드
+    ordering = ["-id"]                                                 # 기본 정렬
+    
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
@@ -88,3 +94,4 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         users = list(post.likes.select_related("user").values_list("user__username", flat=True))
         return Response({"count": len(users), "users": users})
+    
