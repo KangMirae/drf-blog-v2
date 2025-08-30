@@ -13,7 +13,7 @@ from .serializers import CommentSerializer
 class PostCommentViewSet(viewsets.ModelViewSet):
     """
     특정 Post에 대한 댓글 목록/생성
-    /api/posts/{post_id}/comments/
+    /api/posts/{post_pk}/comments/
     """
     serializer_class = CommentSerializer
     permission_classes = [IsOwnerOrReadOnly]
