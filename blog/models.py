@@ -1,6 +1,18 @@
 from django.db import models
 from django.conf import settings
 
+
+class Comment(models.Model):
+    post = models.ForeignKey('Post', on_delete=models.CASCADE, related_name='comments')  # 어떤 글의 댓글인가
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')  # 작성자
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)   # 생성 시각
+    updated_at = models.DateTimeField(auto_now=True)       # 수정 시각
+
+    def __str__(self):
+        return f"Comment#{self.id} by {self.author} on Post#{self.post_id}"
+
+
 class Post(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='posts')
     title = models.CharField(max_length=200)                 # 글 제목(검색/리스트에 보임)
@@ -10,3 +22,4 @@ class Post(models.Model):
 
     def __str__(self):
         return f"{self.id} - {self.title}"
+

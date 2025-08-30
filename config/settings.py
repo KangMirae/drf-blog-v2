@@ -50,6 +50,11 @@ REST_FRAMEWORK = {
     ],
 }
 
+REST_FRAMEWORK.update({
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
+})
+
 from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),   # 접근 토큰 15분

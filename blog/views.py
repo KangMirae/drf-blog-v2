@@ -1,12 +1,45 @@
-from rest_framework import viewsets, permissions
-from .models import Post
-from .serializers import PostSerializer
-from django.contrib.auth.models import User
-from rest_framework import permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from django.contrib.auth.models import User
+from .models import Post
+from .serializers import PostSerializer
 from .permissions import IsOwnerOrReadOnly
+from django.shortcuts import get_object_or_404
+from .models import Comment
+from .serializers import CommentSerializer
+
+
+class PostCommentViewSet(viewsets.ModelViewSet):
+    """
+    특정 Post에 대한 댓글 목록/생성
+    /api/posts/{post_id}/comments/
+    """
+    serializer_class = CommentSerializer
+    permission_classes = [IsOwnerOrReadOnly]
+
+    def get_queryset(self):
+        post_id = self.kwargs.get("post_pk")  # URL의 캡처 이름과 일치해야 함
+        return Comment.objects.filter(post_id=post_id).order_by("-id")
+
+    def perform_create(self, serializer):
+        post_id = self.kwargs.get("post_pk")
+        post = get_object_or_404(Post, pk=post_id)
+        serializer.save(post=post, author=self.request.user)
+
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    개별 댓글 CRUD
+    /api/comments/{id}/
+    """
+    queryset = Comment.objects.all().order_by("-id")
+    serializer_class = CommentSerializer
+    permission_classes = [IsOwnerOrReadOnly]
+
+    def perform_create(self, serializer):
+        # 일반적으로 개별 생성은 사용하지 않지만, 혹시 대비
+        serializer.save(author=self.request.user)
+
 
 class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwnerOrReadOnly]
