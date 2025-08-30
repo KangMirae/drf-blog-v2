@@ -1,6 +1,17 @@
 from django.db import models
 from django.conf import settings
 
+class Like(models.Model):
+    post = models.ForeignKey('Post', on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('post', 'user')  # 같은 사용자가 같은 글을 중복 좋아요 금지
+        ordering = ('-id',)
+
+    def __str__(self):
+        return f"Like#{self.id} by {self.user} on Post#{self.post_id}"
 
 class Comment(models.Model):
     post = models.ForeignKey('Post', on_delete=models.CASCADE, related_name='comments')  # 어떤 글의 댓글인가
@@ -11,7 +22,6 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment#{self.id} by {self.author} on Post#{self.post_id}"
-
 
 class Post(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='posts')
