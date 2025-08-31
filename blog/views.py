@@ -1,15 +1,31 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth.models import User
-from .models import Post, Comment
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
+from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer
 from .permissions import IsOwnerOrReadOnly
-from django.shortcuts import get_object_or_404
-from .models import Like
-from rest_framework.decorators import action
-from rest_framework import filters
 
+from .models import Notification
+from .serializers import NotificationSerializer
+from .permissions import IsReceiverOnly
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    /api/notifications/  (내 알림만)
+    GET: 목록/조회
+    PATCH: 읽음 처리 (is_read=True)
+    DELETE: 삭제
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated, IsReceiverOnly]
+    queryset = Notification.objects.all()   # ★ 추가: basename 유추용 기본 queryset
+
+    def get_queryset(self):
+        # 내 알림만
+        return Notification.objects.filter(user=self.request.user).order_by("-id")
 
 class PostCommentViewSet(viewsets.ModelViewSet):
     """
@@ -26,7 +42,18 @@ class PostCommentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         post_id = self.kwargs.get("post_pk")
         post = get_object_or_404(Post, pk=post_id)
-        serializer.save(post=post, author=self.request.user)
+        # 방금 생성된 댓글 객체를 변수에 담는다
+        comment_obj = serializer.save(post=post, author=self.request.user)
+
+        # 내 글에 내가 단 댓글이면 알림 만들 필요 없음
+        if post.author_id != self.request.user.id:
+            msg = f"{self.request.user.username}님이 '{post.title[:20]}' 글에 댓글을 달았습니다."
+            Notification.objects.create(
+                user=post.author,
+                message=msg,
+                post=post,
+                comment=comment_obj,
+            )
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
@@ -59,8 +86,7 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwnerOrReadOnly]
     queryset = Post.objects.all().order_by("-id")
     serializer_class = PostSerializer
-
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]   # 추가
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]   # 필터
     search_fields = ["title", "content"]                               # 어떤 필드를 검색할지
     ordering_fields = ["created_at", "updated_at", "id"]               # 정렬 허용 필드
     ordering = ["-id"]                                                 # 기본 정렬
