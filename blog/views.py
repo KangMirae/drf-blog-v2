@@ -4,13 +4,11 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
-from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer
-from .permissions import IsOwnerOrReadOnly
+from .models import Post, Comment, Like, Notification
+from .serializers import PostSerializer, CommentSerializer, NotificationSerializer
+from .permissions import IsOwnerOrReadOnly, IsReceiverOnly
 
-from .models import Notification
-from .serializers import NotificationSerializer
-from .permissions import IsReceiverOnly
+from django_filters.rest_framework import DjangoFilterBackend
 
 class NotificationViewSet(viewsets.ModelViewSet):
     """
@@ -121,3 +119,15 @@ class PostViewSet(viewsets.ModelViewSet):
         users = list(post.likes.select_related("user").values_list("user__username", flat=True))
         return Response({"count": len(users), "users": users})
     
+    # 쿼리파라미터: ?category=backend&tags=jwt,drf
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category = self.request.query_params.get("category")
+        tags = self.request.query_params.get("tags")
+        if category:
+            qs = qs.filter(category__slug=category)
+        if tags:
+            slugs = [t.strip() for t in tags.split(",") if t.strip()]
+            if slugs:
+                qs = qs.filter(tags__slug__in=slugs).distinct()
+        return qs

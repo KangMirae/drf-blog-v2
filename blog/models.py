@@ -1,5 +1,16 @@
 from django.db import models
 from django.conf import settings
+from django.utils.text import slugify
+
+class Category(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=60, unique=True)
+    def __str__(self): return self.name
+
+class Tag(models.Model):
+    name = models.CharField(max_length=30, unique=True)
+    slug = models.SlugField(max_length=40, unique=True)
+    def __str__(self): return self.name
 
 class Notification(models.Model):
     user = models.ForeignKey(  # 알림 수신자(글 작성자)
@@ -46,6 +57,23 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)     # 처음 생성된 시간
     updated_at = models.DateTimeField(auto_now=True)         # 마지막 수정 시간
 
+    # slug
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
+    tags = models.ManyToManyField(Tag, blank=True, related_name="posts")
+    slug = models.SlugField(max_length=80, unique=True)
+
     def __str__(self):
         return f"{self.id} - {self.title}"
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.title)[:70]
+            candidate = base
+            i = 1
+            from django.db.models import Q
+            while Post.objects.filter(slug=candidate).exclude(pk=self.pk).exists():
+                i += 1
+                candidate = f"{base}-{i}"
+            self.slug = candidate
+        super().save(*args, **kwargs)
 
