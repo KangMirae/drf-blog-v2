@@ -33,7 +33,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     author = serializers.ReadOnlyField(source='author.username')
-    like_count = serializers.IntegerField(source='likes.count', read_only=True)  
+    # annotate로 붙여온 값을 그대로 읽기전용으로 노출
+    like_count = serializers.IntegerField(read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
 
     # slug - category/tag
     category = serializers.SlugRelatedField(
@@ -47,5 +49,6 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = ["id","slug","author","title","content",
                   "category","tags",
-                  "created_at","updated_at","like_count"] # 수정
-        read_only_fields = ["id","slug","author","created_at","updated_at","like_count"] # 수정
+                  "created_at","updated_at",
+                  "like_count","comment_count"]
+        read_only_fields = ["id","slug","author","created_at","updated_at","like_count","comment_count"]

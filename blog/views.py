@@ -3,12 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count
 from rest_framework.decorators import action
 from .models import Post, Comment, Like, Notification
 from .serializers import PostSerializer, CommentSerializer, NotificationSerializer
-from .permissions import IsOwnerOrReadOnly, IsReceiverOnly
-
-from django_filters.rest_framework import DjangoFilterBackend
+from .permissions import IsOwnerOrReadOnly, IsReceiverOnly, IsAdminOrOwnerOrReadOnly
 
 class NotificationViewSet(viewsets.ModelViewSet):
     """
@@ -19,11 +19,48 @@ class NotificationViewSet(viewsets.ModelViewSet):
     """
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated, IsReceiverOnly]
-    queryset = Notification.objects.all()   # ★ 추가: basename 유추용 기본 queryset
+    queryset = Notification.objects.all()   # 추가: basename 유추용 기본 queryset
 
     def get_queryset(self):
         # 내 알림만
         return Notification.objects.filter(user=self.request.user).order_by("-id")
+    
+    @action(detail=False, methods=["get"])
+    def unread(self, request):
+        """
+        GET /api/notifications/unread/
+        -> 안 읽은(is_read=False) 알림만
+        """
+        qs = self.get_queryset().filter(is_read=False)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            ser = self.get_serializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = self.get_serializer(qs, many=True)
+        return Response(ser.data)
+
+    @action(detail=False, methods=["patch", "post"])
+    def mark_read(self, request):
+        """
+        PATCH/POST /api/notifications/mark_read/
+        Body 예시:
+          { "ids": [1,2,3] }   -> 지정한 것만 읽음 처리
+          { "all": true }      -> 내 알림 전부 읽음 처리
+        """
+        ids = request.data.get("ids")
+        mark_all = request.data.get("all")
+
+        qs = self.get_queryset().filter(is_read=False)
+        if mark_all:
+            updated = qs.update(is_read=True)
+            return Response({"updated": updated}, status=status.HTTP_200_OK)
+
+        if isinstance(ids, list) and ids:
+            updated = qs.filter(id__in=ids).update(is_read=True)
+            return Response({"updated": updated}, status=status.HTTP_200_OK)
+
+        return Response({"detail": "Provide 'all': true or 'ids': [..]"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 class PostCommentViewSet(viewsets.ModelViewSet):
     """
@@ -60,7 +97,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     """
     queryset = Comment.objects.all().order_by("-id")
     serializer_class = CommentSerializer
-    permission_classes = [IsOwnerOrReadOnly]
+    permission_classes = [IsAdminOrOwnerOrReadOnly]
 
     def perform_create(self, serializer):
         # 일반적으로 개별 생성은 사용하지 않지만, 혹시 대비
@@ -81,13 +118,21 @@ class RegisterView(APIView):
 
 
 class PostViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwnerOrReadOnly]
-    queryset = Post.objects.all().order_by("-id")
+    # annotate로 like/comment 집계 컬럼을 쿼리 단계에서 붙임 (성능 ↑)
+    queryset = (Post.objects
+                .all()
+                .annotate(
+                    like_count=Count("likes", distinct=True),
+                    comment_count=Count("comments", distinct=True),
+                )
+                .order_by("-id"))
     serializer_class = PostSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]   # 필터
-    search_fields = ["title", "content"]                               # 어떤 필드를 검색할지
-    ordering_fields = ["created_at", "updated_at", "id"]               # 정렬 허용 필드
-    ordering = ["-id"]                                                 # 기본 정렬
+    permission_classes = [IsAdminOrOwnerOrReadOnly]
+    # (검색/정렬/필터 기존 코드 유지)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["title","content"]
+    ordering_fields = ["created_at","updated_at","id","like_count","comment_count"]
+    ordering = ["-id"]                                                # 기본 정렬
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
