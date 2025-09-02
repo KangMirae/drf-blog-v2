@@ -1,0 +1,17 @@
+[
+  {
+    "model": "blog.category",
+    "pk": 1,
+    "fields": {"name": "Python", "slug": "python"}
+  },
+  {
+    "model": "blog.category",
+    "pk": 2,
+    "fields": {"name": "Django", "slug": "django"}
+  },
+  {
+    "model": "blog.category",
+    "pk": 3,
+    "fields": {"name": "AI", "slug": "ai"}
+  }
+]

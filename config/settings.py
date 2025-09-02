@@ -146,3 +146,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ▶ loaddata가 프로젝트 최상단의 fixtures/ 폴더를 자동 탐색하도록 지정
+FIXTURE_DIRS = [BASE_DIR / "fixtures"]

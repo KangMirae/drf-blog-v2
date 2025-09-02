@@ -1,0 +1,58 @@
+[
+  {
+    "model": "blog.post",
+    "pk": 1,
+    "fields": {
+      "author": 1,
+      "title": "JWT 인증 기본",
+      "content": "JWT 토큰 기반 인증 설명",
+      "category": 2,
+      "tags": [1,2],
+      "slug": "jwt-인증-기본",
+      "created_at": "2025-08-31T09:00:00Z",
+      "updated_at": "2025-08-31T09:00:00Z"
+    }
+  },
+  {
+    "model": "blog.post",
+    "pk": 2,
+    "fields": {
+      "author": 2,
+      "title": "Django ORM 기초",
+      "content": "QuerySet, filter, get 등 기본 사용법",
+      "category": 2,
+      "tags": [2],
+      "slug": "django-orm-기초",
+      "created_at": "2025-08-30T15:00:00Z",
+      "updated_at": "2025-08-30T15:00:00Z"
+    }
+  },
+  {
+    "model": "blog.post",
+    "pk": 3,
+    "fields": {
+      "author": 1,
+      "title": "NLP와 DRF",
+      "content": "자연어 처리와 Django REST Framework",
+      "category": 3,
+      "tags": [2,3],
+      "slug": "nlp와-drf",
+      "created_at": "2025-08-28T10:00:00Z",
+      "updated_at": "2025-08-28T10:00:00Z"
+    }
+  },
+  {
+    "model": "blog.post",
+    "pk": 4,
+    "fields": {
+      "author": 2,
+      "title": "Python Async 프로그래밍",
+      "content": "async/await 기본 개념과 사용법",
+      "category": 1,
+      "tags": [4],
+      "slug": "python-async-프로그래밍",
+      "created_at": "2025-08-27T14:30:00Z",
+      "updated_at": "2025-08-27T14:30:00Z"
+    }
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "model": "blog.tag",
+    "pk": 1,
+    "fields": {"name": "jwt", "slug": "jwt"}
+  },
+  {
+    "model": "blog.tag",
+    "pk": 2,
+    "fields": {"name": "drf", "slug": "drf"}
+  },
+  {
+    "model": "blog.tag",
+    "pk": 3,
+    "fields": {"name": "nlp", "slug": "nlp"}
+  },
+  {
+    "model": "blog.tag",
+    "pk": 4,
+    "fields": {"name": "async", "slug": "async"}
+  }
+]
