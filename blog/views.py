@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -205,3 +206,20 @@ class PostViewSet(viewsets.ModelViewSet):
             if slugs:
                 qs = qs.filter(tags__slug__in=slugs).distinct()
         return qs
+    
+    @action(detail=True, methods=["post"], url_path="refresh_ai",
+            permission_classes=[IsAdminOrOwnerOrReadOnly])
+    def refresh_ai(self, request, pk=None):
+        post = self.get_object()
+        if not settings.AI_ENABLE:
+            return Response({"detail": "AI disabled"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ai = get_ai()
+            post.summary = ai.summarize(post.content)
+            post.tags_suggested = ai.suggest_tags(post.content, k=5)
+            post.save(update_fields=["summary", "tags_suggested"])
+            return Response({"id": post.id, "summary": post.summary, "tags_suggested": post.tags_suggested})
+        except Exception:
+            import logging
+            logging.exception("AI refresh failed for post_id=%s", post.id)
+            return Response({"detail": "AI refresh failed"}, status=status.HTTP_502_BAD_GATEWAY)
