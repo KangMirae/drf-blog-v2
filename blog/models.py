@@ -62,6 +62,13 @@ class Post(models.Model):
     tags = models.ManyToManyField(Tag, blank=True, related_name="posts")
     slug = models.SlugField(max_length=80, unique=True)
 
+    # AI 결과 저장 필드
+    summary = models.TextField(blank=True)  # 요약문 (없을 수도 있으니 blank=True)
+    tags_suggested = models.JSONField(default=list, blank=True)  # 추천 태그 리스트
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
         return f"{self.id} - {self.title}"
     

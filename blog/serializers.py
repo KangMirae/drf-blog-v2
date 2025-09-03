@@ -44,11 +44,18 @@ class PostSerializer(serializers.ModelSerializer):
     tags = serializers.SlugRelatedField(
         slug_field="slug", queryset=Tag.objects.all(), many=True, required=False
     )
+    
+    # ai
+    summary = serializers.CharField(read_only=True)
+    tags_suggested = serializers.ListField(child=serializers.CharField(), read_only=True)
+
 
     class Meta:
         model = Post
-        fields = ["id","slug","author","title","content",
-                  "category","tags",
-                  "created_at","updated_at",
-                  "like_count","comment_count"]
-        read_only_fields = ["id","slug","author","created_at","updated_at","like_count","comment_count"]
+        fields = ["id", "slug", "author", "title", "content",
+                  "category", "tags",
+                  "summary", "tags_suggested",       
+                  "created_at", "updated_at",
+                  "like_count", "comment_count"]
+        read_only_fields = ["id","slug","author","created_at","updated_at",
+                            "like_count","comment_count","summary","tags_suggested"]

@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,3 +151,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ▶ loaddata가 프로젝트 최상단의 fixtures/ 폴더를 자동 탐색하도록 지정
 FIXTURE_DIRS = [BASE_DIR / "fixtures"]
+
+# .env 로드
+load_dotenv(BASE_DIR / ".env")
+
+# --- AI 플래그/설정 ---
+AI_ENABLE = os.getenv("AI_ENABLE", "false").lower() == "true"
+AI_PROVIDER = os.getenv("AI_PROVIDER", "dummy").lower()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_SUMMARY_MODEL = os.getenv("GEMINI_SUMMARY_MODEL", "gemini-1.5-flash")
+GEMINI_TAG_MODEL = os.getenv("GEMINI_TAG_MODEL", "gemini-1.5-flash")

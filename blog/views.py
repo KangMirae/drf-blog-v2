@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from .models import Post, Comment, Like, Notification
 from .serializers import PostSerializer, CommentSerializer, NotificationSerializer
 from .permissions import IsOwnerOrReadOnly, IsReceiverOnly, IsAdminOrOwnerOrReadOnly
+from .ai import get_ai
 
 class NotificationViewSet(viewsets.ModelViewSet):
     """
@@ -135,7 +136,35 @@ class PostViewSet(viewsets.ModelViewSet):
     ordering = ["-id"]                                                # 기본 정렬
     
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        # 1) 우선 글을 저장 (author 지정)
+        post = serializer.save(author=self.request.user)
+
+        # 2) AI 실행 (요약 + 태그추천). 실패해도 글은 정상 생성되도록 보호
+        try:
+            ai = get_ai()
+            summary = ai.summarize(post.content)
+            tags_suggested = ai.suggest_tags(post.content, k=5)
+
+            # 3) 결과 저장 (partial update)
+            #    DB write 1회로 줄이고 싶으면 post.summary=...; post.tags_suggested=...; post.save(update_fields=[...])
+            post.summary = summary
+            post.tags_suggested = tags_suggested
+            post.save(update_fields=["summary", "tags_suggested"])
+        except Exception:
+            # 로깅만 하고 조용히 무시하여 UX 보호
+            import logging
+            logging.exception("AI generation failed for post_id=%s", post.id)
+
+    def perform_update(self, serializer):
+        post = serializer.save()
+        try:
+            ai = get_ai()
+            post.summary = ai.summarize(post.content)
+            post.tags_suggested = ai.suggest_tags(post.content, k=5)
+            post.save(update_fields=["summary","tags_suggested"])
+        except Exception:
+            import logging
+            logging.exception("AI update failed for post_id=%s", post.id)
 
     @action(detail=True, methods=["post", "delete"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
