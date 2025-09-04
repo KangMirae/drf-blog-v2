@@ -112,29 +112,55 @@ async function getPost(id) {
 
 async function createPost({ title, content, category, tags }) {
   // 백엔드는 category=slug, tags=슬러그 배열 기대
-  const body = { title, content };
-  if (category) body.category = category.trim();
-  if (tags) body.tags = tags.split(",").map(s => s.trim()).filter(Boolean);
-  const res = await fetchWithAuth(`${API_BASE}/api/posts/`, {
-    method: "POST", body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`글 생성 실패: ${msg}`);
+  const body = {
+    title: (title ?? "").trim(),
+    content: (content ?? "").trim(),
+  };
+  if (category && category.trim()) body.category = category.trim();
+  if (tags && tags.trim()) {
+    body.tags = tags.split(",").map(s => s.trim()).filter(Boolean);
   }
-  return res.json();
+
+  const res = await fetchWithAuth(`${API_BASE}/api/posts/`, {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    // 에러 상세를 DRF 포맷대로 보여주기 (JSON 우선)
+    try {
+      const err = await res.json();
+      throw new Error(`글 생성 실패: ${JSON.stringify(err)}`);
+    } catch (_) {
+      const msg = await res.text();
+      throw new Error(`글 생성 실패: ${msg}`);
+    }
+  }
+
+  return res.json(); // 생성된 포스트 객체
 }
 
 async function updatePost(id, { title, content }) {
+  const payload = {};
+  if (typeof title === "string") payload.title = title.trim();
+  if (typeof content === "string") payload.content = content.trim();
+
   const res = await fetchWithAuth(`${API_BASE}/api/posts/${id}/`, {
     method: "PATCH",
-    body: JSON.stringify({ title, content })
+    body: JSON.stringify(payload)
   });
+
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`수정 실패: ${msg}`);
+    try {
+      const err = await res.json();
+      throw new Error(`수정 실패: ${JSON.stringify(err)}`);
+    } catch (_) {
+      const msg = await res.text();
+      throw new Error(`수정 실패: ${msg}`);
+    }
   }
-  return res.json();
+
+  return res.json(); // 수정된 포스트 객체
 }
 
 async function deletePost(id) {
@@ -163,10 +189,20 @@ async function listComments(postId) {
 async function addComment(postId, content) {
   const res = await fetchWithAuth(`${API_BASE}/api/posts/${postId}/comments/`, {
     method: "POST",
-    body: JSON.stringify({ content })
+    body: JSON.stringify({ content: (content ?? "").trim() })
   });
-  if (!res.ok) throw new Error("댓글 작성 실패");
-  return res.json();
+
+  if (!res.ok) {
+    try {
+      const err = await res.json();
+      throw new Error(`댓글 작성 실패: ${JSON.stringify(err)}`);
+    } catch (_) {
+      const msg = await res.text();
+      throw new Error(`댓글 작성 실패: ${msg}`);
+    }
+  }
+
+  return res.json(); // 생성된 댓글 객체
 }
 
 async function deleteComment(commentId) {
@@ -177,7 +213,9 @@ async function deleteComment(commentId) {
 async function listUnreadNotifications() {
   const res = await fetchWithAuth(`${API_BASE}/api/notifications/unread/`);
   if (!res.ok) throw new Error("알림 조회 실패");
-  return res.json();
+  const data = await res.json();
+  // 전역 페이지네이션 대응: 배열 또는 {results:[]} 모두 처리
+  return Array.isArray(data) ? data : (data.results || []);
 }
 
 async function markAllNotificationsRead() {
@@ -334,21 +372,45 @@ window.addEventListener("DOMContentLoaded", () => {
     hide($("#detail")); hide($("#noti")); show($("#list"));
     loadPosts();                // ← 목록 갱신
   };
+  
   $("#load-noti-btn").onclick = async () => {
     if (!store.access) return alert("로그인 필요");
-    const items = await listUnreadNotifications();
-    $("#noti-list").innerHTML = items.map(n => `
-      <div class="post">
-        <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
-        <div>${n.message}</div>
-      </div>
-    `).join("");
-    hide($("#detail")); hide($("#list")); show($("#noti"));
+    try {
+      const items = await listUnreadNotifications();   // ← 여기서 이미 배열로 보장
+      $("#noti-list").innerHTML = (items.length
+        ? items.map(n => `
+            <div class="post">
+              <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+              <div>${n.message || ""}</div>
+            </div>
+          `).join("")
+        : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+      );
+      hide($("#detail")); hide($("#list")); show($("#noti"));
+    } catch (e) {
+      console.error(e);
+      alert("알림을 불러오지 못했습니다.");
+    }
   };
+
   $("#mark-read-btn").onclick = async () => {
     if (!store.access) return alert("로그인 필요");
-    await markAllNotificationsRead();
-    alert("알림 모두 읽음 처리");
+    const ok = await markAllNotificationsRead();
+    if (ok) {
+      // 다시 불러와 갱신
+      const items = await listUnreadNotifications();
+      $("#noti-list").innerHTML = (items.length
+        ? items.map(n => `
+            <div class="post">
+              <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+              <div>${n.message || ""}</div>
+            </div>
+          `).join("")
+        : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+      );
+    } else {
+      alert("읽음 처리 실패");
+    }
   };
 
   $("#login-form").onsubmit = async (e) => {
