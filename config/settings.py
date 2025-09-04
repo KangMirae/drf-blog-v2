@@ -33,7 +33,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    "django_filters",
+    'corsheaders',
+    'django_filters',
     'rest_framework',
     'blog',
     'django.contrib.admin',
@@ -68,6 +69,7 @@ SIMPLE_JWT = {
 }
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -162,3 +164,12 @@ AI_PROVIDER = os.getenv("AI_PROVIDER", "dummy").lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_SUMMARY_MODEL = os.getenv("GEMINI_SUMMARY_MODEL", "gemini-1.5-flash")
 GEMINI_TAG_MODEL = os.getenv("GEMINI_TAG_MODEL", "gemini-1.5-flash")
+
+# 개발 편의: 모든 오리진 허용 (운영에선 특정 도메인으로 제한)
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Authorization 헤더 허용
+CORS_ALLOW_HEADERS = [
+    "accept", "accept-encoding", "authorization", "content-type", "origin",
+    "dnt", "user-agent", "x-csrftoken", "x-requested-with",
+]
