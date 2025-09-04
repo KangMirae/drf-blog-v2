@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>DRF Blog – Demo Frontend</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="./styles.css" rel="stylesheet" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>DRF Blog</h1>
+    <div id="auth-area">
+      <!-- 로그인 상태 UI가 여기 바뀜 -->
+      <form id="login-form" class="row" autocomplete="off">
+        <input type="text" id="login-username" placeholder="username" required />
+        <input type="password" id="login-password" placeholder="password" required />
+        <button type="submit">로그인</button>
+      </form>
+      <div id="logged-in" class="hidden">
+        <span id="whoami"></span>
+        <button id="logout-btn">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- 검색/필터/정렬 -->
+    <section id="controls" class="card">
+      <form id="search-form" class="row">
+        <input type="text" id="q" placeholder="검색어 (title, content)" />
+        <input type="text" id="category" placeholder="카테고리 slug (예: django)" />
+        <input type="text" id="tags" placeholder="태그 콤마(,)로 (예: drf,jwt)" />
+        <select id="ordering">
+          <option value="-created_at">최신순</option>
+          <option value="created_at">오래된순</option>
+          <option value="-like_count">좋아요 많음</option>
+          <option value="-comment_count">댓글 많음</option>
+        </select>
+        <button>검색</button>
+      </form>
+      <div class="row">
+        <button id="refresh-btn">새로고침</button>
+        <button id="load-noti-btn">내 알림(읽지 않음)</button>
+        <button id="mark-read-btn">알림 모두 읽음</button>
+      </div>
+    </section>
+
+    <!-- 글 작성 (로그인 필요) -->
+    <section id="create-post" class="card hidden">
+      <h2>새 글</h2>
+      <form id="create-form" class="col">
+        <input type="text" id="new-title" placeholder="제목" required />
+        <textarea id="new-content" placeholder="본문" rows="5" required></textarea>
+        <input type="text" id="new-category" placeholder="카테고리 slug (옵션)" />
+        <input type="text" id="new-tags" placeholder="태그 콤마(,)로 (옵션)" />
+        <button type="submit">작성</button>
+      </form>
+    </section>
+
+    <!-- 목록 -->
+    <section id="list" class="card">
+      <h2>글 목록</h2>
+      <div id="posts"></div>
+      <div id="pager" class="row"></div>
+    </section>
+
+    <!-- 상세 -->
+    <section id="detail" class="card hidden">
+      <button id="back-btn">← 목록으로</button>
+      <div id="post-detail"></div>
+
+      <div id="edit-area" class="hidden">
+        <h3>글 수정</h3>
+        <form id="edit-form" class="col">
+          <input type="text" id="edit-title" required />
+          <textarea id="edit-content" rows="5" required></textarea>
+          <button type="submit">수정 저장</button>
+          <button type="button" id="delete-btn">삭제</button>
+        </form>
+      </div>
+
+      <div id="comments-area">
+        <h3>댓글</h3>
+        <div id="comments"></div>
+        <form id="comment-form" class="row hidden">
+          <input type="text" id="comment-input" placeholder="댓글 작성" />
+          <button>등록</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 알림 -->
+    <section id="noti" class="card hidden">
+      <h2>읽지 않은 알림</h2>
+      <div id="noti-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">© DRF Blog Demo</footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
