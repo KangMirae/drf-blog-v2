@@ -152,6 +152,14 @@ export async function markAllNotificationsRead() {
   return res.ok;
 }
 
+export async function markNotificationRead(id) {
+  const res = await fetchWithAuth(`${API_BASE}/api/notifications/${id}/read/`, {
+    method: "PATCH",
+    body: JSON.stringify({})
+  });
+  return res.ok;
+}
+
 export async function getUnreadCount() {
   const res = await fetchWithAuth(`${API_BASE}/api/notifications/unread/`);
   if (!res.ok) return 0;
@@ -159,4 +167,17 @@ export async function getUnreadCount() {
   if (typeof data?.count === "number") return data.count;
   const items = Array.isArray(data) ? data : (data.results || []);
   return items.length;
+}
+
+export async function register(username, password) {
+  const res = await fetch(`${API_BASE}/api/auth/register/`, {
+    method: "POST",
+    headers: { "Content-Type":"application/json", "Accept":"application/json" },
+    body: JSON.stringify({ username, password })
+  });
+  if (!res.ok) {
+    try { throw new Error(`회원가입 실패: ${JSON.stringify(await res.json())}`); }
+    catch { throw new Error(`회원가입 실패: ${await res.text()}`); }
+  }
+  return res.json(); // {id, username}
 }

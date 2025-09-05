@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>DRF Blog</h1>
+    <h1><a href="#" id="brand">DRF Blog</a></h1>
     <!-- <button id="bell-btn" class="secondary">
         🔔 <span id="bell-count">0</span>
     </button>   -->
@@ -19,6 +19,14 @@
         <input type="password" id="login-password" placeholder="password" required />
         <button type="submit">로그인</button>
       </form>
+      <section id="signup">
+        <h3>회원가입</h3>
+        <form id="signup-form">
+            <input id="signup-username" placeholder="아이디" required />
+            <input id="signup-password" type="password" placeholder="비밀번호" required />
+            <button type="submit">가입</button>
+        </form>
+      </section>
       <div id="logged-in" class="hidden">
         <span id="whoami"></span>
         <button id="logout-btn">로그아웃</button>

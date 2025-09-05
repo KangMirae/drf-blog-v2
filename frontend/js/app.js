@@ -1,9 +1,13 @@
+
+window.addEventListener("error", (e) => console.error("window.error:", e.message, e));
+window.addEventListener("unhandledrejection", (e) => console.error("unhandledrejection:", e.reason));
+
 // 앱 진입점: 렌더링/이벤트
 import { $, $$, show, hide, store, lastListQuery, setLastListQuery, setCurrentDetailId } from "./state.js";
 import { showToast, startLoading, endLoading } from "./ui.js";
 import {
-  login, listPosts, getPost, createPost, updatePost, deletePost, likePost,
-  listComments, addComment, deleteComment, listUnreadNotifications, markAllNotificationsRead, getUnreadCount
+  register, login, listPosts, getPost, createPost, updatePost, deletePost, likePost,
+  listComments, addComment, deleteComment, listUnreadNotifications, markAllNotificationsRead, getUnreadCount, markNotificationRead
 } from "./api.js";
 
 async function refreshBell() {
@@ -163,6 +167,8 @@ function renderDetail(p, comments = []) {
       loadPosts((lastListQuery.page || 1));
     };
   });
+
+  
 }
 
 function renderAuth() {
@@ -204,6 +210,27 @@ window.addEventListener("DOMContentLoaded", () => {
       : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
     );
     hide($("#detail")); hide($("#list")); show($("#noti"));
+  });
+
+  $("#noti-list").addEventListener("click", async (e) => {
+    const a = e.target.closest(".noti-link");
+    if (!a) return;
+    e.preventDefault();
+    const notiId = a.getAttribute("data-noti-id");
+    const postId = a.getAttribute("data-post-id");
+    // 읽음 처리
+    await markNotificationRead(notiId);
+    refreshBell();
+
+    // 글로 이동 (post_id가 있을 때)
+    if (postId) {
+      const post = await getPost(postId);
+      const cs = await listComments(postId);
+      renderDetail(post, cs);
+    } else {
+      // 링크할 대상이 없으면 알림 목록만 갱신
+      openNotifications();
+    }
   });
 
   $("#bell-btn")?.addEventListener("click", async () => {
@@ -282,4 +309,48 @@ window.addEventListener("DOMContentLoaded", () => {
     const id = a.getAttribute("data-id");
     renderDetail(await getPost(id), await listComments(id));
   });
+  $("#load-noti-btn")?.addEventListener("click", openNotifications);
+  $("#bell-btn")?.addEventListener("click", openNotifications);
+    $("#signup-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const u = $("#signup-username").value.trim();
+    const p = $("#signup-password").value.trim();
+    try {
+      await register(u, p);            // 가입
+      await login(u, p);               // 자동 로그인
+      $("#signup-username").value = "";
+      $("#signup-password").value = "";
+      renderAuth();
+      loadPosts(1);
+      refreshBell();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+  $("#brand").onclick = () => {
+    hide($("#detail")); hide($("#noti")); show($("#list"));
+    // 최신 목록 1페이지로
+    loadPosts(1);
+  };
 });
+
+// 알림 목록 열기 부분 교체 (load-noti-btn, bell-btn 공통으로 사용)
+async function openNotifications() {
+  if (!store.access) return alert("로그인 필요");
+  const items = await listUnreadNotifications(); // 배열로 정규화됨
+  $("#noti-list").innerHTML = (items.length
+    ? items.map(n => `
+        <div class="post">
+          <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+          <div>
+            <a href="#" class="noti-link" data-noti-id="${n.id}" data-post-id="${n.post_id || ""}">
+              ${n.message || ""}
+            </a>
+          </div>
+        </div>
+      `).join("")
+    : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+  );
+  hide($("#detail")); hide($("#list")); show($("#noti"));
+}
+
