@@ -63,6 +63,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         return Response({"detail": "Provide 'all': true or 'ids': [..]"},
                         status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=["patch"], url_path="read")
+    def read_one(self, request, pk=None):
+        n = self.get_object()
+        n.is_read = True
+        n.save(update_fields=["is_read"])
+        return Response({"ok": True})
 
 class PostCommentViewSet(viewsets.ModelViewSet):
     """

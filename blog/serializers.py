@@ -16,10 +16,12 @@ class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.username")
     post = serializers.PrimaryKeyRelatedField(read_only=True)
     comment = serializers.PrimaryKeyRelatedField(read_only=True)
+    post_id = serializers.IntegerField(source="post.id", read_only=True)
+    comment_id = serializers.IntegerField(source="comment.id", read_only=True)
 
     class Meta:
         model = Notification
-        fields = ["id", "user", "message", "post", "comment", "is_read", "created_at"]
+        fields = ["id", "user", "message", "post", "comment", "is_read", "created_at", "post_id", "comment_id"]
         read_only_fields = ["id", "user", "post", "comment", "created_at"]
 
 class CommentSerializer(serializers.ModelSerializer):
