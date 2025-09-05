@@ -12,6 +12,10 @@ const store = {
   clear() { localStorage.removeItem("access"); localStorage.removeItem("refresh"); localStorage.removeItem("username"); }
 };
 
+// 화면 상태: 마지막 목록 쿼리(검색/필터/정렬/페이지) + 현재 상세 글 ID
+let lastListQuery = { search: "", category: "", tags: "", ordering: "-created_at", page: 1 };
+let currentDetailId = null;
+
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -263,30 +267,41 @@ function postCard(p) {
   `;
 }
 
-async function loadPosts(page=1) {
+async function loadPosts(page = null) {
   try {
-    const search = $("#q").value.trim();
-    const category = $("#category").value.trim();
-    const tags = $("#tags").value.trim();
-    const ordering = $("#ordering").value;
-    const data = await listPosts({ search, category, tags, ordering, page });
+    // 1) 폼에서 현재 조건을 읽어서 lastListQuery 갱신
+    const q = $("#q").value.trim();
+    const cat = $("#category").value.trim();
+    const tg = $("#tags").value.trim();
+    const ord = $("#ordering").value;
+    if (page === null) page = lastListQuery.page ?? 1; // page 미지정 시 기존 페이지 유지
 
+    lastListQuery = {
+      search: q, category: cat, tags: tg, ordering: ord, page
+    };
+
+    // 2) 실제 API 호출
+    const data = await listPosts(lastListQuery);
+
+    // 3) 렌더
     $("#posts").innerHTML = (data.results || data).map(postCard).join("");
-    // 페이지네이션
+
+    // 4) 페이지네이션
     const pager = $("#pager");
     pager.innerHTML = "";
     if (data.previous) {
       const b = document.createElement("button");
       b.textContent = "이전";
-      b.onclick = () => loadPosts(page - 1);
+      b.onclick = () => loadPosts(Math.max(1, (lastListQuery.page || 1) - 1));
       pager.appendChild(b);
     }
     if (data.next) {
       const b = document.createElement("button");
       b.textContent = "다음";
-      b.onclick = () => loadPosts(page + 1);
+      b.onclick = () => loadPosts((lastListQuery.page || 1) + 1);
       pager.appendChild(b);
     }
+
   } catch (e) {
     alert(e.message);
   }
@@ -294,18 +309,22 @@ async function loadPosts(page=1) {
 
 function renderDetail(p, comments=[]) {
     // 혹시 안전망: 여기서도 한 번 더 정규화
+  currentDetailId = p.id;                                           // ✅ 현재 상세 ID 기억
   comments = Array.isArray(comments) ? comments : (comments?.results || []);
   show($("#detail")); hide($("#list")); hide($("#noti"));
-  const aiTags = (p.tags_suggested || []).map(t => `<span class="badge">${t}</span>`).join("");
+  const aiTagsArr = p.tags_suggested || [];
+  const aiTags = aiTagsArr.length
+    ? aiTagsArr.map(t => `<span class="badge">${t}</span>`).join("")
+    : `<span class="badge" style="background:#f0f0f0;color:#666">추천태그없음</span>`;
   $("#post-detail").innerHTML = `
     <div class="meta">#${p.id} / by ${p.author} / ${new Date(p.created_at).toLocaleString()}</div>
     <h2>${p.title}</h2>
     ${p.summary?.trim() ? `<p><strong>요약:</strong> ${p.summary}</p>` : ""}
-    <pre style="white-space:pre-wrap">${p.content}</pre>
+    <pre style="white-space:pre-wrap">${p.content || ""}</pre>
     <div class="meta">
       ${(p.tags || []).map(t => `<span class="badge">#${t}</span>`).join("")}
       ${aiTags}
-      <span class="badge">❤️ ${p.like_count ?? 0}</span>
+      <span class="badge" id="like-count">❤️ ${p.like_count ?? 0}</span>
       <span class="badge">💬 ${p.comment_count ?? 0}</span>
     </div>
     <div class="row">
@@ -328,17 +347,39 @@ function renderDetail(p, comments=[]) {
   `).join("");
 
   // 이벤트 바인딩
+  // 좋아요: 낙관적(버튼 즉시 비활성 + 수치 잠깐 올렸다가) → 서버 결과로 재동기화
   $("#like-btn").onclick = async () => {
-    const ok = await likePost(p.id);
-    // ok 여부와 상관없이 새 상태를 가져와 렌더 (서버가 토글/멱등 모두 커버)
-    const fresh = await getPost(p.id);
-    const cs = await listComments(p.id);
-    renderDetail(fresh, cs);
+    const btn = $("#like-btn");
+    const likeBadge = $("#like-count");
+    btn.disabled = true;
+
+    // 낙관적 UI: 일단 +1처럼 보이게 (실제 토글은 서버 결정)
+    const before = parseInt((likeBadge.textContent.match(/\d+/) || [0])[0], 10);
+    likeBadge.textContent = `❤️ ${before + 1}`;
+
+    try {
+      await likePost(p.id);
+    } catch (e) {
+      // 실패 시 복구 메시지
+      likeBadge.textContent = `❤️ ${before}`;
+      console.error(e);
+    } finally {
+      // 진짜 서버 상태로 동기화
+      const fresh = await getPost(p.id);
+      const cs = await listComments(p.id);
+      btn.disabled = false;
+      renderDetail(fresh, cs);
+      // 목록으로 돌아갈 때 최신 카드가 보이도록 백그라운드에서 목록 갱신
+      loadPosts(lastListQuery.page || 1);
+    }
   };
   $("#edit-toggle").onclick = () => { $("#edit-area").scrollIntoView({behavior:"smooth"}); };
   $("#delete-btn").onclick = async () => {
     if (!confirm("정말 삭제할까요?")) return;
-    await deletePost(p.id); hide($("#detail")); show($("#list")); loadPosts();
+    await deletePost(p.id);
+    currentDetailId = null;
+    hide($("#detail")); show($("#list"));
+    loadPosts(lastListQuery.page || 1);           // ✅ 목록 최신화
   };
   $("#edit-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -346,18 +387,27 @@ function renderDetail(p, comments=[]) {
     const content = $("#edit-content").value.trim();
     const updated = await updatePost(p.id, { title, content });
     renderDetail(updated, await listComments(p.id));
+    loadPosts(lastListQuery.page || 1);           // ✅ 목록 카드도 최신화
   };
   $("#comment-form").onsubmit = async (e) => {
     e.preventDefault();
-    const txt = $("#comment-input").value.trim();
+    const $input = $("#comment-input");
+    const txt = $input.value.trim();
     if (!txt) return;
     await addComment(p.id, txt);
-    $("#comment-input").value = "";
+    $input.value = "";
+    $input.focus();                                // ✅ 포커스 유지
     renderDetail(await getPost(p.id), await listComments(p.id));
+    // 목록 카드의 댓글 수치도 최신화
+    loadPosts(lastListQuery.page || 1);
   };
   // 댓글 삭제 버튼들
   $$("#comments [data-delc]").forEach(btn => {
-    btn.onclick = async () => { await deleteComment(btn.getAttribute("data-delc")); renderDetail(await getPost(p.id), await listComments(p.id)); };
+    btn.onclick = async () => {
+      await deleteComment(btn.getAttribute("data-delc"));
+      renderDetail(await getPost(p.id), await listComments(p.id));
+      loadPosts(lastListQuery.page || 1);
+    };
   });
 }
 
@@ -366,11 +416,18 @@ window.addEventListener("DOMContentLoaded", () => {
   renderAuth();
   loadPosts();
 
-  $("#search-form").onsubmit = (e) => { e.preventDefault(); loadPosts(1); };
-  $("#refresh-btn").onclick = () => loadPosts();
-  $("#back-btn").onclick = () => {
+  $("#search-form").onsubmit = (e) => { 
+    e.preventDefault(); 
+    loadPosts(1);                 // 검색하면 1페이지로
+  };
+  // 수동 새로고침
+  $("#refresh-btn").onclick = () => loadPosts( lastListQuery.page || 1 );
+  // 뒤로가기(목록으로)
+  $("#back-btn").onclick = () => { 
     hide($("#detail")); hide($("#noti")); show($("#list"));
-    loadPosts();                // ← 목록 갱신
+    currentDetailId = null;
+    // 뒤로 오면 최신 목록 보이게
+    loadPosts( lastListQuery.page || 1 );
   };
   
   $("#load-noti-btn").onclick = async () => {
@@ -436,12 +493,13 @@ window.addEventListener("DOMContentLoaded", () => {
     const tags = $("#new-tags").value.trim();
     try {
       const p = await createPost({ title, content, category, tags });
+      // 폼 초기화
       $("#new-title").value = ""; $("#new-content").value = ""; $("#new-category").value = ""; $("#new-tags").value = "";
-      // 글 생성 성공 후
+      // 방금 쓴 글 상세로 이동
       const comments = await listComments(p.id);
       renderDetail(p, comments);
-      // 백 버튼 눌렀을 때 최신 목록을 보이도록 미리 로드
-      loadPosts();
+      // 목록은 뒤에서 최신화 → "목록" 눌렀을 때 바로 보이게
+      loadPosts(1); // 새 글이 1페이지 상단에 오도록 1페이지 로드
     } catch (err) {
       alert(err.message);
     }
