@@ -50,7 +50,8 @@ class PostSerializer(serializers.ModelSerializer):
     # 입력/출력 모두 문자열 리스트로 처리 (["drf","jwt","새글"])
     tags = serializers.ListField(
         child=serializers.CharField(max_length=50),
-        required=False
+        required=False,
+        write_only=True
     )
     # 카테고리는 slug 하나(문자열)로 받는다는 기존 규칙 유지
     category = serializers.SlugRelatedField(
@@ -75,36 +76,69 @@ class PostSerializer(serializers.ModelSerializer):
         read_only_fields = ["id","slug","author","created_at","updated_at",
                             "like_count","comment_count","summary","tags_suggested"]
         
-        # 공통 유틸: 들어온 문자열 리스트를 Tag 객체 리스트로 변환(+자동 생성)
-    def _resolve_tags(self, tags_list):
+
+    # ---------- (A) 입력 정규화: validate 단계에서 문자열 리스트로 확정 ----------
+    def validate_tags(self, value):
+        """
+        어떤 입력이 와도 ["drf","새글"] 형태로 바꿔준다.
+        """
+        print("[PostSerializer.validate_tags] raw type:", type(value))  # 진단 로그
+
+        if value is None:
+            return []
+
+        # 이미 문자열 리스트
+        if isinstance(value, list) and all(isinstance(x, str) for x in value):
+            return [x.strip() for x in value if x and x.strip()]
+
+        # 단일 문자열 "a, b, c"
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+
+        # ManyRelatedManager / QuerySet
+        if hasattr(value, "all"):
+            value = list(value.all())
+
+        # list[Tag] 등
+        if isinstance(value, (list, tuple)):
+            out = []
+            for obj in value:
+                if hasattr(obj, "slug"):
+                    out.append(obj.slug)
+                elif isinstance(obj, str):
+                    out.append(obj.strip())
+            return [s for s in out if s]
+
+        # 그 외: 비워버림(안전)
+        return []
+
+    # ---------- (B) 태그 문자열 리스트 → Tag 객체 리스트 ----------
+    def _resolve_tags(self, tag_slugs):
         tag_objs = []
-        for raw in tags_list:
-            # 공백 제거
-            raw = (raw or "").strip()
+        for raw in tag_slugs:
             if not raw:
                 continue
-            # slug 표준화: 한글도 허용
             s = slugify(raw, allow_unicode=True)
-            # name은 보기용으로 raw 보존, slug는 s 사용
             obj, _ = Tag.objects.get_or_create(slug=s, defaults={"name": raw})
             tag_objs.append(obj)
         return tag_objs
 
+    # ---------- (C) create/update에서 set()만 사용 ----------
     def create(self, validated_data):
-        tags_list = validated_data.pop("tags", [])
+        tag_slugs = validated_data.pop("tags", [])
         post = Post.objects.create(**validated_data)
-        if tags_list:
-            post.tags.set(self._resolve_tags(tags_list))
+        if tag_slugs:
+            post.tags.set(self._resolve_tags(tag_slugs))
         return post
 
     def update(self, instance, validated_data):
-        tags_list = validated_data.pop("tags", None)  # None이면 태그 변경 안 함
+        tag_slugs = validated_data.pop("tags", None)  # None이면 미변경
         instance = super().update(instance, validated_data)
-        if tags_list is not None:
-            instance.tags.set(self._resolve_tags(tags_list))
+        if tag_slugs is not None:
+            instance.tags.set(self._resolve_tags(tag_slugs))
         return instance
 
-    # 응답 시에도 문자열 리스트로 나가게 (["drf","jwt","새글"])
+    # ---------- (D) 응답은 항상 slug 리스트 ----------
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["tags"] = list(instance.tags.values_list("slug", flat=True))
