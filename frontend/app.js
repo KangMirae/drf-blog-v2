@@ -92,6 +92,7 @@ function logout() {
   hide($("#detail")); hide($("#noti"));
   show($("#list"));
   loadPosts(); // 비로그인 목록
+  refreshBell();
 }
 
 // ====================== API 호출 함수들 ======================
@@ -356,7 +357,7 @@ function renderDetail(p, comments=[]) {
     // 낙관적 UI: 일단 +1처럼 보이게 (실제 토글은 서버 결정)
     const before = parseInt((likeBadge.textContent.match(/\d+/) || [0])[0], 10);
     likeBadge.textContent = `❤️ ${before + 1}`;
-
+    startLoading();                // ← 시작
     try {
       await likePost(p.id);
     } catch (e) {
@@ -371,6 +372,7 @@ function renderDetail(p, comments=[]) {
       renderDetail(fresh, cs);
       // 목록으로 돌아갈 때 최신 카드가 보이도록 백그라운드에서 목록 갱신
       loadPosts(lastListQuery.page || 1);
+      endLoading();               // ← 종료
     }
   };
   $("#edit-toggle").onclick = () => { $("#edit-area").scrollIntoView({behavior:"smooth"}); };
@@ -415,6 +417,8 @@ function renderDetail(p, comments=[]) {
 window.addEventListener("DOMContentLoaded", () => {
   renderAuth();
   loadPosts();
+  refreshBell();          
+  setInterval(refreshBell, 30000); // 30초마다 갱신
 
   $("#search-form").onsubmit = (e) => { 
     e.preventDefault(); 
@@ -450,11 +454,30 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+//   $("#bell-btn").onclick = async () => {
+//     if (!store.access) return alert("로그인 필요");
+//     try {
+//       const items = await listUnreadNotifications(); // 이미 배열로 정규화된 함수 사용 중
+//       $("#noti-list").innerHTML = (items.length
+//         ? items.map(n => `
+//             <div class="post">
+//               <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+//               <div>${n.message || ""}</div>
+//             </div>
+//           `).join("")
+//         : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+//       );
+//       hide($("#detail")); hide($("#list")); show($("#noti"));
+//     } catch (e) {
+//     console.error(e);
+//     alert("알림을 불러오지 못했습니다.");
+//   }
+//   };
+
   $("#mark-read-btn").onclick = async () => {
     if (!store.access) return alert("로그인 필요");
     const ok = await markAllNotificationsRead();
     if (ok) {
-      // 다시 불러와 갱신
       const items = await listUnreadNotifications();
       $("#noti-list").innerHTML = (items.length
         ? items.map(n => `
@@ -465,6 +488,7 @@ window.addEventListener("DOMContentLoaded", () => {
           `).join("")
         : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
       );
+      refreshBell(); // ← 숫자 갱신
     } else {
       alert("읽음 처리 실패");
     }
@@ -478,6 +502,7 @@ window.addEventListener("DOMContentLoaded", () => {
       await login(u, p);
       renderAuth();
       loadPosts();
+      refreshBell();
     } catch (err) {
       alert(err.message);
     }
@@ -515,4 +540,36 @@ window.addEventListener("DOMContentLoaded", () => {
     const cs = await listComments(id);
     renderDetail(p, cs);
   });
+
 });
+
+async function getUnreadCount() {
+    const res = await fetchWithAuth(`${API_BASE}/api/notifications/unread/`);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    if (typeof data?.count === "number") return data.count;
+    const items = Array.isArray(data) ? data : (data.results || []);
+    return items.length;
+}
+async function refreshBell() {
+  if (!store.access) { $("#bell-count").textContent = "0"; return; }
+  try {
+    const n = await getUnreadCount();
+    $("#bell-count").textContent = String(n);
+  } catch {
+    $("#bell-count").textContent = "0";
+  }
+}
+function showToast(msg, ms = 2000) {
+  const el = $("#toast");
+  el.textContent = msg;
+  show(el);
+  setTimeout(() => hide(el), ms);
+}
+let loadingCount = 0;
+function startLoading() {
+  if (++loadingCount === 1) show($("#loading"));
+}
+function endLoading() {
+  if (loadingCount > 0 && --loadingCount === 0) hide($("#loading"));
+}
