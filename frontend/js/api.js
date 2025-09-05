@@ -80,8 +80,9 @@ export async function createPost({ title, content, category, tags }) {
     body: JSON.stringify(body)
   });
   if (!res.ok) {
-    try { throw new Error(`글 생성 실패: ${JSON.stringify(await res.json())}`); }
-    catch { throw new Error(`글 생성 실패: ${await res.text()}`); }
+    let body = "";
+    try { body = await res.text(); } catch { body = "<no body>"; }
+    throw new Error(`회원가입 실패: ${res.status} ${body}`);
   }
   return res.json();
 }
@@ -95,8 +96,9 @@ export async function updatePost(id, { title, content }) {
     body: JSON.stringify(payload)
   });
   if (!res.ok) {
-    try { throw new Error(`수정 실패: ${JSON.stringify(await res.json())}`); }
-    catch { throw new Error(`수정 실패: ${await res.text()}`); }
+    let body = "";
+    try { body = await res.text(); } catch { body = "<no body>"; }
+    throw new Error(`회원가입 실패: ${res.status} ${body}`);
   }
   return res.json();
 }
@@ -125,8 +127,9 @@ export async function addComment(postId, content) {
     body: JSON.stringify({ content: (content ?? "").trim() })
   });
   if (!res.ok) {
-    try { throw new Error(`댓글 작성 실패: ${JSON.stringify(await res.json())}`); }
-    catch { throw new Error(`댓글 작성 실패: ${await res.text()}`); }
+    let body = "";
+    try { body = await res.text(); } catch { body = "<no body>"; }
+    throw new Error(`회원가입 실패: ${res.status} ${body}`);
   }
   return res.json();
 }
@@ -176,8 +179,10 @@ export async function register(username, password) {
     body: JSON.stringify({ username, password })
   });
   if (!res.ok) {
-    try { throw new Error(`회원가입 실패: ${JSON.stringify(await res.json())}`); }
-    catch { throw new Error(`회원가입 실패: ${await res.text()}`); }
+    let body = "";
+    try { body = await res.text(); } catch { body = "<no body>"; }
+    // JSON일 수도, 아닐 수도 있으니 그대로 메시지에 싣기
+    throw new Error(`회원가입 실패: ${res.status} ${body}`);
   }
   return res.json(); // {id, username}
 }
