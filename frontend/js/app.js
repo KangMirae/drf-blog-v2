@@ -174,16 +174,14 @@ function renderDetail(p, comments = []) {
 function renderAuth() {
   const logged = !!store.access;
   if (logged) {
-    hide($("#login-form"));
-    $("#whoami").textContent = `안녕하세요, ${store.username}`;
+    hide($("#guest-actions"));
     show($("#logged-in"));
-    show($("#create-post"));
-    show($("#comment-form"));
+    $("#whoami").textContent = `안녕하세요, ${store.username}`;
+    show($("#create-post")); show($("#comment-form"));
   } else {
-    show($("#login-form"));
+    show($("#guest-actions"));
     hide($("#logged-in"));
-    hide($("#create-post"));
-    hide($("#comment-form"));
+    hide($("#create-post")); hide($("#comment-form"));
   }
 }
 
@@ -274,10 +272,15 @@ window.addEventListener("DOMContentLoaded", () => {
     const p = $("#login-password").value.trim();
     try {
       await login(u, p);
+      closeModal("#login-modal");
+      $("#login-username").value = ""; $("#login-password").value = "";
       renderAuth();
-      loadPosts();
+      loadPosts(1);
       refreshBell();
-    } catch (err) { alert(err.message); }
+      showToast("로그인 완료");
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   $("#logout-btn").onclick = () => {
@@ -311,18 +314,19 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   $("#load-noti-btn")?.addEventListener("click", openNotifications);
   $("#bell-btn")?.addEventListener("click", openNotifications);
-    $("#signup-form").onsubmit = async (e) => {
+  $("#signup-form").onsubmit = async (e) => {
     e.preventDefault();
     const u = $("#signup-username").value.trim();
     const p = $("#signup-password").value.trim();
     try {
       await register(u, p);            // 가입
       await login(u, p);               // 자동 로그인
-      $("#signup-username").value = "";
-      $("#signup-password").value = "";
+      closeModal("#signup-modal");
+      $("#signup-username").value = ""; $("#signup-password").value = "";
       renderAuth();
       loadPosts(1);
       refreshBell();
+      showToast("가입 및 로그인 완료");
     } catch (err) {
       alert(err.message);
     }
@@ -332,6 +336,8 @@ window.addEventListener("DOMContentLoaded", () => {
     // 최신 목록 1페이지로
     loadPosts(1);
   };
+  $("#open-login")?.addEventListener("click", () => openModal("#login-modal"));
+  $("#open-signup")?.addEventListener("click", () => openModal("#signup-modal"));
 });
 
 // 알림 목록 열기 부분 교체 (load-noti-btn, bell-btn 공통으로 사용)
@@ -354,3 +360,35 @@ async function openNotifications() {
   hide($("#detail")); hide($("#list")); show($("#noti"));
 }
 
+
+function openModal(sel) {
+  const modal = $(sel);
+  if (!modal) return;
+  show($("#backdrop")); show(modal);
+  document.documentElement.classList.add("modal-open");
+  // 첫 입력에 포커스
+  const firstInput = modal.querySelector("input,button,textarea,select");
+  firstInput?.focus();
+}
+
+function closeModal(sel) {
+  const modal = $(sel);
+  if (!modal) return;
+  hide($("#backdrop")); hide(modal);
+  document.documentElement.classList.remove("modal-open");
+}
+
+// 백드롭/닫기 버튼/ESC로 닫기
+$("#backdrop").onclick = () => {
+  closeModal("#login-modal"); closeModal("#signup-modal");
+};
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-close]");
+  if (!btn) return;
+  closeModal(btn.getAttribute("data-close"));
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeModal("#login-modal"); closeModal("#signup-modal");
+  }
+});
