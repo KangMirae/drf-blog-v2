@@ -16,6 +16,11 @@ button.danger { background:#c0392b; }
 .footer { text-align:center; color:#888; padding:20px 0; }
 #toast { position: fixed; right: 16px; bottom: 16px; background: #111; color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
 #loading { position: fixed; left: 50%; top: 20px; transform: translateX(-50%); background: #111; color:#fff; padding:6px 10px; border-radius: 6px; }
+#create-form input[type="text"],
+#create-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
 /* --- Modal --- */
 .modal-backdrop {
   position: fixed; inset: 0;
@@ -44,3 +49,29 @@ button.danger { background:#c0392b; }
 }
 button.block { width: 100%; }
 html.modal-open { overflow: hidden; } /* 모달 열릴 때 스크롤 잠금 */
+/* --- Modal end --- */
+
+/* --- Tag autocomplete --- */
+/* 태그 입력 전용 래퍼가 기준점 */
+.tag-field { position: relative; }
+/* 드롭다운: 래퍼 폭 = 입력 폭, 그대로 따라감 */
+.ac-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;       /* ← 이 조합이면 width:auto로 두는 게 맞아요 */
+  width: auto;
+  max-height: 240px;
+  overflow: auto;
+
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  padding: 6px 0;
+  z-index: 1000;
+}
+/* 항목 */
+.ac-item { padding: 8px 12px; cursor: pointer; }
+.ac-item:hover { background: #f3f4f6; }
+/* --- Tag autocomplete end --- */

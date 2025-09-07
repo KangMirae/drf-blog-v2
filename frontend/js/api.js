@@ -186,3 +186,14 @@ export async function register(username, password) {
   }
   return res.json(); // {id, username}
 }
+
+export async function searchTags(q, page = 1) {
+  const params = new URLSearchParams();
+  if (q) params.set("search", q);
+  params.set("page", page);
+  const res = await fetchWithAuth(`${API_BASE}/api/tags/${params.toString() ? "?" + params : ""}`);
+  if (!res.ok) throw new Error("태그 검색 실패");
+  const data = await res.json();
+  // 페이지네이션/비페이지네이션 모두 대응
+  return Array.isArray(data) ? data : (data.results || []);
+}

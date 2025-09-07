@@ -6,8 +6,11 @@ window.addEventListener("unhandledrejection", (e) => console.error("unhandledrej
 import { $, $$, show, hide, store, lastListQuery, setLastListQuery, setCurrentDetailId } from "./state.js";
 import { showToast, startLoading, endLoading } from "./ui.js";
 import {
-  register, login, listPosts, getPost, createPost, updatePost, deletePost, likePost,
-  listComments, addComment, deleteComment, listUnreadNotifications, markAllNotificationsRead, getUnreadCount, markNotificationRead
+  register, login, 
+  listPosts, getPost, createPost, updatePost, deletePost, likePost,
+  listComments, addComment, deleteComment,
+  listUnreadNotifications, markAllNotificationsRead, getUnreadCount, markNotificationRead,
+  searchTags
 } from "./api.js";
 
 async function refreshBell() {
@@ -392,3 +395,94 @@ document.addEventListener("keydown", (e) => {
     closeModal("#login-modal"); closeModal("#signup-modal");
   }
 });
+
+function debounce(fn, wait = 200) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function splitTagsInput(value) {
+  // "drf, jwt, 새태그" → ["drf","jwt","새태그"]
+  return (value || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function joinTagsInput(arr) {
+  return (arr || []).join(", ");
+}
+
+function setupTagAutocomplete() {
+  const input = $("#new-tags");
+  const list  = $("#tag-suggest");
+  if (!input || !list) return;
+
+  // 현재 커서 기준 "마지막 토큰" 추출
+  const getCurrentToken = () => {
+    const raw = input.value || "";
+    const parts = raw.split(",");
+    return (parts[parts.length - 1] || "").trim();
+  };
+
+  // 현재 입력값에서 마지막 토큰만 교체
+  const replaceLastToken = (replacement) => {
+    const raw = input.value || "";
+    const parts = raw.split(",");
+    // 앞쪽 고정, 마지막만 교체
+    parts[parts.length - 1] = " " + replacement;
+    // 중복 제거 (선택)
+    const unique = Array.from(new Set(splitTagsInput(parts.join(","))));
+    input.value = joinTagsInput(unique);
+  };
+
+  const renderList = (items) => {
+    if (!items.length) { hide(list); list.innerHTML = ""; return; }
+    list.innerHTML = items.map(t =>
+      `<div class="ac-item" data-slug="${t.slug}" data-name="${t.name || t.slug}">
+         #${t.slug} <small style="color:#6b7280">${t.name && t.name !== t.slug ? "· " + t.name : ""}</small>
+       </div>`
+    ).join("");
+    show(list);
+  };
+
+  const doSearch = debounce(async () => {
+    const token = getCurrentToken();
+    if (!token) { hide(list); list.innerHTML = ""; return; }
+    try {
+      const items = await searchTags(token);
+      renderList(items.slice(0, 8)); // 상위 8개만
+    } catch {
+      hide(list); list.innerHTML = "";
+    }
+  }, 200);
+
+  // 입력/포커스 시 검색
+  input.addEventListener("input", doSearch);
+  input.addEventListener("focus", doSearch);
+
+  // 드롭다운 클릭 → 마지막 토큰 교체
+  list.addEventListener("click", (e) => {
+    const item = e.target.closest(".ac-item");
+    if (!item) return;
+    const slug = item.getAttribute("data-slug");
+    replaceLastToken(slug);
+    hide(list);
+    input.focus();
+  });
+
+  // ESC/바깥 클릭으로 닫기
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { hide(list); }
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target === input) return;
+    if (!list.contains(e.target)) hide(list);
+  });
+}
+
+// 진입점(DOMContentLoaded) 내부에서 호출하세요.
+setupTagAutocomplete();

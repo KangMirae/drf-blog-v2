@@ -76,7 +76,13 @@
         <input type="text" id="new-title" placeholder="제목" required />
         <textarea id="new-content" placeholder="본문" rows="5" required></textarea>
         <input type="text" id="new-category" placeholder="카테고리 slug (옵션)" />
-        <input type="text" id="new-tags" placeholder="태그 콤마(,)로 (옵션)" />
+
+        <!-- ⬇️ 래퍼 추가: 이 div가 기준이 됨 -->
+        <div class="tag-field">
+          <input type="text" id="new-tags" placeholder="태그 콤마(,)로 (옵션)" />
+          <div id="tag-suggest" class="ac-list hidden"></div>
+        </div>
+
         <button type="submit">작성</button>
       </form>
     </section>
