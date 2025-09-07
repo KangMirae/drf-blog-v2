@@ -10,8 +10,8 @@ class CategorySerializer(serializers.ModelSerializer):
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = ["id", "name", "slug"]
-
+        fields = ["id", "slug", "name"]
+        
 class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.username")
     post = serializers.PrimaryKeyRelatedField(read_only=True)

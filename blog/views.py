@@ -7,10 +7,21 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count
 from rest_framework.decorators import action
-from .models import Post, Comment, Like, Notification
-from .serializers import PostSerializer, CommentSerializer, NotificationSerializer
+from .models import Post, Comment, Like, Notification, Tag
+from .serializers import PostSerializer, CommentSerializer, NotificationSerializer, TagSerializer
 from .permissions import IsOwnerOrReadOnly, IsReceiverOnly, IsAdminOrOwnerOrReadOnly
 from .ai import get_ai
+
+class TagViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    /api/tags/           → 전체/페이지네이션 목록
+    /api/tags/?search=x  → name/slug 부분검색
+    /api/tags/{id}/      → 단건 조회
+    """
+    queryset = Tag.objects.all().order_by("name")
+    serializer_class = TagSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name", "slug"]
 
 class NotificationViewSet(viewsets.ModelViewSet):
     """
@@ -124,7 +135,6 @@ class RegisterView(APIView):
             return Response({'detail': '이미 존재하는 username입니다.'}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.create_user(username=username, password=password)
         return Response({'id': user.id, 'username': user.username}, status=status.HTTP_201_CREATED)
-
 
 class PostViewSet(viewsets.ModelViewSet):
     # annotate로 like/comment 집계 컬럼을 쿼리 단계에서 붙임 (성능 ↑)
