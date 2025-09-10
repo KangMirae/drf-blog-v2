@@ -75,3 +75,36 @@ html.modal-open { overflow: hidden; } /* 모달 열릴 때 스크롤 잠금 */
 .ac-item { padding: 8px 12px; cursor: pointer; }
 .ac-item:hover { background: #f3f4f6; }
 /* --- Tag autocomplete end --- */
+/* --- numeric pagination --- */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  align-items: center;
+}
+#pager button {
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #111827;
+}
+#pager button[disabled] {
+  opacity: .5;
+  cursor: default;
+}
+#pager .active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+#pager .ellipsis {
+  border: none;
+  background: transparent;
+  cursor: default;
+  padding: 6px 4px;
+  color: #9ca3af !important;
+}
+/* --- numeric pagination end --- */

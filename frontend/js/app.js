@@ -10,7 +10,7 @@ import {
   listPosts, getPost, createPost, updatePost, deletePost, likePost,
   listComments, addComment, deleteComment,
   listUnreadNotifications, markAllNotificationsRead, getUnreadCount, markNotificationRead,
-  searchTags
+  searchTags, PAGE_SIZE
 } from "./api.js";
 
 async function refreshBell() {
@@ -71,6 +71,10 @@ async function loadPosts(page = null) {
       b.onclick = () => loadPosts((query.page || 1) + 1);
       pager.appendChild(b);
     }
+
+    renderPagination({ count: data.count ?? (data.results?.length || 0), page });
+    lastListQuery.page = page;
+    
   } catch (e) {
     showToast(e.message);
   }
@@ -203,20 +207,6 @@ window.addEventListener("DOMContentLoaded", () => {
     hide($("#detail")); hide($("#noti")); show($("#list")); setCurrentDetailId(null);
     loadPosts((lastListQuery?.page) || 1);
   });
-  // $("#load-noti-btn")?.addEventListener("click", async () => {
-  //   if (!store.access) return alert("로그인 필요");
-  //   const items = await listUnreadNotifications();
-  //   $("#noti-list").innerHTML = (items.length
-  //     ? items.map(n => `
-  //         <div class="post">
-  //           <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
-  //           <div>${n.message || ""}</div>
-  //         </div>
-  //       `).join("")
-  //     : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
-  //   );
-  //   hide($("#detail")); hide($("#list")); show($("#noti"));
-  // });
 
   $("#noti-list").addEventListener("click", async (e) => {
     const a = e.target.closest(".noti-link");
@@ -238,21 +228,6 @@ window.addEventListener("DOMContentLoaded", () => {
       openNotifications();
     }
   });
-
-  // $("#bell-btn")?.addEventListener("click", async () => {
-  //   if (!store.access) return alert("로그인 필요");
-  //   const items = await listUnreadNotifications();
-  //   $("#noti-list").innerHTML = (items.length
-  //     ? items.map(n => `
-  //         <div class="post">
-  //           <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
-  //           <div>${n.message || ""}</div>
-  //         </div>
-  //       `).join("")
-  //     : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
-  //   );
-  //   hide($("#detail")); hide($("#list")); show($("#noti"));
-  // });
 
   $("#mark-read-btn").onclick = async () => {
     if (!store.access) return alert("로그인 필요");
@@ -361,6 +336,14 @@ window.addEventListener("DOMContentLoaded", () => {
       suggestBox.classList.add("hidden");
     });
   }
+
+  document.getElementById("pager")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-page]");
+    if (!btn) return;
+    const target = Number(btn.getAttribute("data-page"));
+    if (!target || Number.isNaN(target)) return;
+    loadPosts(target);
+  });
 });
 
 // 알림 목록 열기 부분 교체 (load-noti-btn, bell-btn 공통으로 사용)
@@ -501,4 +484,57 @@ function setupTagAutocomplete() {
     if (e.target === input) return;
     if (!list.contains(e.target)) hide(list);
   });
+}
+
+// 숫자 페이지 버튼 묶음 만들기 (1 … 4 5 6 … 12)
+function buildPageItems(current, total) {
+  const items = [];
+  const push = (t, page, extra = "") => items.push({ t, page, extra });
+
+  // 항상 1, 마지막은 노출. 현재 주변은 범위로.
+  const windowSize = 1; // 현재 좌우 한 칸(= 3개 묶음)
+  const addRange = (a, b) => { for (let i = a; i <= b; i++) push(String(i), i); };
+
+  const left = Math.max(1, current - windowSize);
+  const right = Math.min(total, current + windowSize);
+
+  // 1쪽
+  push("1", 1);
+  if (left > 2) push("…", null, "ellipsis");
+
+  // 중간 구간
+  addRange(Math.max(2, left), Math.min(total - 1, right));
+
+  if (right < total - 1) push("…", null, "ellipsis");
+  if (total > 1) push(String(total), total);
+
+  // 현재 강조
+  return items.map(it => (it.page === current ? { ...it, extra: (it.extra || "") + " active" } : it));
+}
+
+function renderPagination({ count, page }) {
+  const pager = document.getElementById("pager");
+  if (!pager) return;
+
+  const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
+  // 페이지가 1개뿐이면 감춤
+  if (totalPages <= 1) {
+    pager.innerHTML = "";
+    return;
+  }
+
+  const items = buildPageItems(page, totalPages);
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
+  pager.innerHTML = `
+    <button class="prev" ${prevDisabled} data-page="${page - 1}">이전</button>
+    ${items.map(it =>
+      it.extra?.includes("ellipsis")
+        ? `<button class="ellipsis" disabled>…</button>`
+        : `<button class="${it.extra || ""}" data-page="${it.page}">${it.t}</button>`
+    ).join("")}
+    <button class="next" ${nextDisabled} data-page="${page + 1}">다음</button>
+    <span style="margin-left:8px;color:#6b7280">총 ${totalPages} 페이지</span>
+  `;
 }

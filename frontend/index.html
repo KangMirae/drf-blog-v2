@@ -9,16 +9,7 @@
 <body>
   <header class="topbar">
     <h1><a href="#" id="brand">DRF Blog</a></h1>
-    <!-- <button id="bell-btn" class="secondary">
-        🔔 <span id="bell-count">0</span>
-    </button>   -->
     <div id="auth-area">
-      <!-- 로그인 상태 UI가 여기 바뀜 -->
-      <!-- <form id="login-form" class="row" autocomplete="off">
-        <input type="text" id="login-username" placeholder="username" required />
-        <input type="password" id="login-password" placeholder="password" required />
-        <button type="submit">로그인</button>
-      </form> -->
       <div id="auth-area">
         <!-- 로그인 전 -->
         <div id="guest-actions">
@@ -32,18 +23,6 @@
             <button id="logout-btn" class="danger">로그아웃</button>
         </div>
         </div>
-      <!-- <section id="signup">
-        <h3>회원가입</h3>
-        <form id="signup-form">
-            <input id="signup-username" placeholder="아이디" required />
-            <input id="signup-password" type="password" placeholder="비밀번호" required />
-            <button type="submit">가입</button>
-        </form>
-      </section>
-      <div id="logged-in" class="hidden">
-        <span id="whoami"></span>
-        <button id="logout-btn">로그아웃</button>
-      </div> -->
     </div>
   </header>
 
@@ -91,7 +70,7 @@
     <section id="list" class="card">
       <h2>글 목록</h2>
       <div id="posts"></div>
-      <div id="pager" class="row"></div>
+      <div id="pager" class="row pager"></div>
     </section>
 
     <!-- 상세 -->

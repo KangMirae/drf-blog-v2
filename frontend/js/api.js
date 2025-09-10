@@ -6,6 +6,8 @@ window.addEventListener("unhandledrejection", (e) => {
   alert(msg);
 });
 
+export const PAGE_SIZE = 10; // settings.py의 REST_FRAMEWORK["PAGE_SIZE"]와 동일하게!
+
 import { API_BASE, store } from "./state.js";
 
 export async function refreshAccessToken() {
