@@ -1,5 +1,10 @@
 // js/api.js
 // ✅ 모든 네트워크 호출 모음 (JWT 자동 처리)
+window.addEventListener("unhandledrejection", (e) => {
+  e.preventDefault();
+  const msg = e.reason?.message || "요청 중 오류가 발생했습니다.";
+  alert(msg);
+});
 
 import { API_BASE, store } from "./state.js";
 
@@ -19,15 +24,42 @@ export async function refreshAccessToken() {
 
 export async function fetchWithAuth(url, opts = {}, retry = true) {
   const headers = new Headers(opts.headers || {});
-  headers.set("Accept","application/json");
-  if (!(opts.body instanceof FormData)) headers.set("Content-Type","application/json");
-  if (store.access) headers.set("Authorization", `Bearer ${store.access}`);
-  const res = await fetch(url, { ...opts, headers });
+  headers.set("Accept", "application/json");
+  // body가 FormData가 아닐 때만 Content-Type 지정
+  if (opts.body && !(opts.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (store.access) {
+    headers.set("Authorization", `Bearer ${store.access}`);
+  }
+
+  let res;
+  try {
+    res = await fetch(url, { ...opts, headers, credentials: "omit" });
+  } catch (err) {
+    console.error("fetch error:", err);
+    throw new Error("서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인하세요.");
+  }
+
+  // 401이 아니면 그대로 반환
   if (res.status !== 401) return res;
+
+  // 401인데 재시도 불가/리프레시 없음 → 그대로 반환
   if (!retry || !store.refresh) return res;
-  const ok = await refreshAccessToken();
+
+  // 액세스 토큰 재발급 시도
+  const ok = await refreshAccessToken(); // ← true/false 반환하고 store.access 갱신해야 함
   if (!ok) return res;
-  return fetchWithAuth(url, opts, false);
+
+  // 재시도: 새 토큰으로 Authorization 헤더 갱신 후 다시 호출
+  const headers2 = new Headers(headers);
+  headers2.set("Authorization", `Bearer ${store.access}`);
+  try {
+    return await fetch(url, { ...opts, headers: headers2, credentials: "omit" });
+  } catch (err) {
+    console.error("fetch retry error:", err);
+    throw new Error("네트워크 오류로 요청을 완료하지 못했습니다.");
+  }
 }
 
 // ---- Auth ----

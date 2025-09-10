@@ -193,25 +193,30 @@ window.addEventListener("DOMContentLoaded", () => {
   loadPosts();
   refreshBell();
   setInterval(refreshBell, 30000);
+  setupTagAutocomplete();
 
   $("#search-form").onsubmit = (e) => { e.preventDefault(); loadPosts(1); };
-  $("#refresh-btn").onclick = () => loadPosts((lastListQuery.page || 1));
-  $("#back-btn").onclick = () => { hide($("#detail")); hide($("#noti")); show($("#list")); setCurrentDetailId(null); loadPosts((lastListQuery.page || 1)); };
-
-  $("#load-noti-btn")?.addEventListener("click", async () => {
-    if (!store.access) return alert("로그인 필요");
-    const items = await listUnreadNotifications();
-    $("#noti-list").innerHTML = (items.length
-      ? items.map(n => `
-          <div class="post">
-            <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
-            <div>${n.message || ""}</div>
-          </div>
-        `).join("")
-      : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
-    );
-    hide($("#detail")); hide($("#list")); show($("#noti"));
+  $("#refresh-btn")?.addEventListener("click", () =>
+    loadPosts((lastListQuery?.page) || 1)
+  );  
+  $("#back-btn")?.addEventListener("click", () => {
+    hide($("#detail")); hide($("#noti")); show($("#list")); setCurrentDetailId(null);
+    loadPosts((lastListQuery?.page) || 1);
   });
+  // $("#load-noti-btn")?.addEventListener("click", async () => {
+  //   if (!store.access) return alert("로그인 필요");
+  //   const items = await listUnreadNotifications();
+  //   $("#noti-list").innerHTML = (items.length
+  //     ? items.map(n => `
+  //         <div class="post">
+  //           <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+  //           <div>${n.message || ""}</div>
+  //         </div>
+  //       `).join("")
+  //     : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+  //   );
+  //   hide($("#detail")); hide($("#list")); show($("#noti"));
+  // });
 
   $("#noti-list").addEventListener("click", async (e) => {
     const a = e.target.closest(".noti-link");
@@ -234,20 +239,20 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  $("#bell-btn")?.addEventListener("click", async () => {
-    if (!store.access) return alert("로그인 필요");
-    const items = await listUnreadNotifications();
-    $("#noti-list").innerHTML = (items.length
-      ? items.map(n => `
-          <div class="post">
-            <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
-            <div>${n.message || ""}</div>
-          </div>
-        `).join("")
-      : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
-    );
-    hide($("#detail")); hide($("#list")); show($("#noti"));
-  });
+  // $("#bell-btn")?.addEventListener("click", async () => {
+  //   if (!store.access) return alert("로그인 필요");
+  //   const items = await listUnreadNotifications();
+  //   $("#noti-list").innerHTML = (items.length
+  //     ? items.map(n => `
+  //         <div class="post">
+  //           <div class="meta">#${n.id} / ${new Date(n.created_at).toLocaleString()}</div>
+  //           <div>${n.message || ""}</div>
+  //         </div>
+  //       `).join("")
+  //     : `<div class="meta">읽지 않은 알림이 없습니다.</div>`
+  //   );
+  //   hide($("#detail")); hide($("#list")); show($("#noti"));
+  // });
 
   $("#mark-read-btn").onclick = async () => {
     if (!store.access) return alert("로그인 필요");
@@ -341,6 +346,21 @@ window.addEventListener("DOMContentLoaded", () => {
   };
   $("#open-login")?.addEventListener("click", () => openModal("#login-modal"));
   $("#open-signup")?.addEventListener("click", () => openModal("#signup-modal"));
+
+  const suggestBox = $("#tag-suggest");
+  if (suggestBox) {
+    suggestBox.addEventListener("click", (e) => {
+      const item = e.target.closest(".ac-item");
+      if (!item) return;
+      const tag = item.getAttribute("data-slug") || item.textContent.trim();
+      const input = $("#new-tags");
+      if (!input) return;
+      let current = input.value.split(",").map(s => s.trim()).filter(Boolean);
+      if (!current.includes(tag)) current.push(tag);
+      input.value = current.join(", ");
+      suggestBox.classList.add("hidden");
+    });
+  }
 });
 
 // 알림 목록 열기 부분 교체 (load-noti-btn, bell-btn 공통으로 사용)
@@ -362,7 +382,6 @@ async function openNotifications() {
   );
   hide($("#detail")); hide($("#list")); show($("#noti"));
 }
-
 
 function openModal(sel) {
   const modal = $(sel);
@@ -483,6 +502,3 @@ function setupTagAutocomplete() {
     if (!list.contains(e.target)) hide(list);
   });
 }
-
-// 진입점(DOMContentLoaded) 내부에서 호출하세요.
-setupTagAutocomplete();
