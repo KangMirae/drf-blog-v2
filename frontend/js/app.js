@@ -45,6 +45,7 @@ function postCard(p) {
 
 async function loadPosts(page = null) {
   try {
+    startLoading();
     const q = $("#q").value.trim();
     const cat = $("#category").value.trim();
     const tg = $("#tags").value.trim();
@@ -199,7 +200,9 @@ window.addEventListener("DOMContentLoaded", () => {
   setInterval(refreshBell, 30000);
   setupTagAutocomplete();
 
-  $("#search-form").onsubmit = (e) => { e.preventDefault(); loadPosts(1); };
+  $("#search-form").onsubmit = (e) => { 
+    e.preventDefault(); loadPosts(1); 
+  };
   $("#refresh-btn")?.addEventListener("click", () =>
     loadPosts((lastListQuery?.page) || 1)
   );  
