@@ -36,6 +36,18 @@ It includes JWT authentication, post/comment/like/notification features, and is 
 - Mark notifications as read
 - Display unread notification count in UI
 
+### AI-based content summarization
+- Automatically generate post summaries using Google Gemini
+- Display summary in post list and detail view if available
+
+### Tag suggestion integration
+- Suggest relevant tags based on post content
+- Show autocomplete options when typing in the tag field
+
+### Search (by title, content, tags)
+- Filter posts by title, content, category, or tag
+- Sort by newest, most liked, or most commented
+
 ---
 
 ## Project Structure
@@ -70,17 +82,15 @@ python -m http.server 5500
 
 ## Planned Improvements
 
-- AI-based content summarization
-- Tag suggestion integration
 - Admin/User role distinction
 - Comment likes
-- Search (by title, content, tags)
+- Slug-based post access and URL
 
 ---
 
 ## Developer
 
 - Name: Mirae Kang
-- Position: Aspiring Backend Developer
+- Position: Backend Developer
 
 ---
