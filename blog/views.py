@@ -5,12 +5,15 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 from django.db.models import Count
 from rest_framework.decorators import action
 from .models import Post, Comment, Like, Notification, Tag
 from .serializers import PostSerializer, CommentSerializer, NotificationSerializer, TagSerializer
 from .permissions import IsOwnerOrReadOnly, IsReceiverOnly, IsAdminOrOwnerOrReadOnly
 from .ai import get_ai
+import logging
+logger = logging.getLogger(__name__)
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -151,38 +154,49 @@ class PostViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["title","content"]
     ordering_fields = ["created_at","updated_at","id","like_count","comment_count"]
-    ordering = ["-id"]                                                # 기본 정렬
+    ordering = ["-id"]  # 기본 정렬
+
+    def _run_ai_and_save(self, post: Post):
+        ai = get_ai()
+        text = (post.content or post.title or "").strip()
+        if hasattr(ai, "analyze"):
+            summary, tags = ai.analyze(text, max_chars=120, k=6)
+        else:
+            summary = ai.summarize(text)
+            tags = ai.suggest_tags(text, k=6)
+        post.summary = summary
+        post.tags_suggested = tags
+        post.save(update_fields=["summary", "tags_suggested"])
     
     def perform_create(self, serializer):
-        # 1) 우선 글을 저장 (author 지정)
-        post = serializer.save(author=self.request.user)
-
-        # 2) AI 실행 (요약 + 태그추천). 실패해도 글은 정상 생성되도록 보호
-        try:
-            ai = get_ai()
-            summary = ai.summarize(post.content)
-            tags_suggested = ai.suggest_tags(post.content, k=5)
-
-            # 3) 결과 저장 (partial update)
-            #    DB write 1회로 줄이고 싶으면 post.summary=...; post.tags_suggested=...; post.save(update_fields=[...])
-            post.summary = summary
-            post.tags_suggested = tags_suggested
-            post.save(update_fields=["summary", "tags_suggested"])
-        except Exception:
-            # 로깅만 하고 조용히 무시하여 UX 보호
-            import logging
-            logging.exception("AI generation failed for post_id=%s", post.id)
+        with transaction.atomic():
+            # 1) 우선 글을 저장 (author 지정)
+            post = serializer.save(author=self.request.user)
+            try:
+                self._run_ai_and_save(post)                # 생성 시 1회
+                logger.info("AI filled on create id=%s", post.id)
+            except Exception:
+                logger.exception("AI create failed id=%s", post.id)
 
     def perform_update(self, serializer):
-        post = serializer.save()
-        try:
-            ai = get_ai()
-            post.summary = ai.summarize(post.content)
-            post.tags_suggested = ai.suggest_tags(post.content, k=5)
-            post.save(update_fields=["summary","tags_suggested"])
-        except Exception:
-            import logging
-            logging.exception("AI update failed for post_id=%s", post.id)
+        skip_ai = self.request.query_params.get("skip_ai") in ("1","true","yes","on")
+
+        # 업데이트 전 값 백업
+        instance = self.get_object()
+        before = (instance.title, instance.content)
+
+        with transaction.atomic():
+            post = serializer.save()
+            try:
+                changed = (post.title, post.content) != before
+                if not skip_ai and changed:
+                    self._run_ai_and_save(post)            # 내용 바뀐 경우만
+                    logger.info("AI filled on update id=%s", post.id)
+                else:
+                    logger.info("AI skipped on update id=%s (skip_ai=%s, changed=%s)",
+                                post.id, skip_ai, changed)
+            except Exception:
+                logger.exception("AI update failed id=%s", post.id)
 
     @action(detail=True, methods=["post", "delete"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
@@ -224,19 +238,12 @@ class PostViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(tags__slug__in=slugs).distinct()
         return qs
     
-    @action(detail=True, methods=["post"], url_path="refresh_ai",
-            permission_classes=[IsAdminOrOwnerOrReadOnly])
-    def refresh_ai(self, request, pk=None):
+    @action(detail=True, methods=["post"])
+    def refresh_ai(self, request, slug=None):
         post = self.get_object()
-        if not settings.AI_ENABLE:
-            return Response({"detail": "AI disabled"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            ai = get_ai()
-            post.summary = ai.summarize(post.content)
-            post.tags_suggested = ai.suggest_tags(post.content, k=5)
-            post.save(update_fields=["summary", "tags_suggested"])
-            return Response({"id": post.id, "summary": post.summary, "tags_suggested": post.tags_suggested})
+            self._run_ai_and_save(post)
+            return Response(PostSerializer(post).data)
         except Exception:
-            import logging
-            logging.exception("AI refresh failed for post_id=%s", post.id)
-            return Response({"detail": "AI refresh failed"}, status=status.HTTP_502_BAD_GATEWAY)
+            logger.exception("AI refresh failed id=%s", post.id)
+            return Response({"detail": "AI processing failed"}, status=502)

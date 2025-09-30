@@ -121,21 +121,28 @@ export async function createPost({ title, content, category, tags }) {
   return res.json();
 }
 
-export async function updatePost(id, { title, content }) {
-  const payload = {};
-  if (typeof title === "string") payload.title = title.trim();
-  if (typeof content === "string") payload.content = content.trim();
-  const res = await fetchWithAuth(`${API_BASE}/api/posts/${id}/`, {
+export async function updatePost(id, fields = {}, { skipAI = false } = {}) {
+  const body = {};
+  const { title, content, category, tags } = fields;
+  if (typeof title === "string")   body.title = title.trim();
+  if (typeof content === "string") body.content = content.trim();
+  if (typeof category === "string") body.category = category.trim();
+  if (Array.isArray(tags))         body.tags = tags;
+
+  const qs = skipAI ? "?skip_ai=1" : "";
+  const url = `${API_BASE}/api/posts/${encodeURIComponent(identifier)}/${qs}`;
+  const res = await fetchWithAuth(url, {
     method: "PATCH",
-    body: JSON.stringify(payload)
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    let body = "";
-    try { body = await res.text(); } catch { body = "<no body>"; }
-    throw new Error(`회원가입 실패: ${res.status} ${body}`);
-  }
-  return res.json();
-}
+   if (!res.ok) {
+     let body = "";
+     try { body = await res.text(); } catch { body = "<no body>"; }
+    throw new Error(`요청 실패: ${res.status} ${body}`);
+   }
+   return await res.json();
+ }
 
 export async function deletePost(id) {
   const res = await fetchWithAuth(`${API_BASE}/api/posts/${id}/`, { method:"DELETE" });

@@ -44,8 +44,8 @@ function postCard(p) {
 }
 
 async function loadPosts(page = null) {
+  startLoading();
   try {
-    startLoading();
     const q = $("#q").value.trim();
     const cat = $("#category").value.trim();
     const tg = $("#tags").value.trim();
@@ -78,6 +78,8 @@ async function loadPosts(page = null) {
     
   } catch (e) {
     showToast(e.message);
+  } finally {
+    endLoading();
   }
 }
 
@@ -145,7 +147,7 @@ function renderDetail(p, comments = []) {
     e.preventDefault();
     const title = $("#edit-title").value.trim();
     const content = $("#edit-content").value.trim();
-    const updated = await updatePost(p.id, { title, content });
+    const updated = await updatePost(p.id, { title, content }, { skipAI: true });
     renderDetail(updated, await listComments(p.id));
     loadPosts((lastListQuery.page || 1));
   };
